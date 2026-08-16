@@ -1,42 +1,65 @@
-import argparse
-import json
+import sys
+
+from argparse import ArgumentParser
+
+from text_processor import TextProcessor
+from inverted_index import InvertedIndex
+from utils import load_movies
 
 
-from keyword_matcher import KeywordMatcher
-
-
-def load_movies() -> dict:
-    with open("data/movies.json") as f:
-        return json.load(f)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Keyword Search CLI")
+def parse_arguments(parser: ArgumentParser):
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     search_parser = subparsers.add_parser("search", help="Search movies using keywords")
     search_parser.add_argument("query", type=str, help="Search query")
 
-    args = parser.parse_args()
+    subparsers.add_parser("build", help="Build an inverted index for the movies dataset")
 
-    movies = load_movies()["movies"]
+    return parser.parse_args()
+
+
+def search_movie_by_query(query: str):
+    print(f"Searching for: {query}")
+
+    inverted_index = InvertedIndex()
+    try:
+        inverted_index.load()
+    except FileNotFoundError:
+        print("No cached index file found - exiting program.")
+        sys.exit(1)
+
+    text_processor = TextProcessor()
+    tokens = text_processor.process_text(query)
 
     search_results = []
+    for token in tokens:
+        documents = inverted_index.get_documents(token)
+        for doc_id in documents:
+            search_results.append(inverted_index.get_movie_by_doc_id(doc_id))
+            if len(search_results) >= 5:
+                break
+
+        if len(search_results) >= 5:
+            break  
+
+    for matched_movie in search_results:
+        print(f"{matched_movie["id"]}. {matched_movie["title"]}")
+
+
+def build_inverted_index():
+    inverted_index = InvertedIndex()
+    inverted_index.build().save()
+
+
+def main() -> None:
+    parser = ArgumentParser(description="Keyword Search CLI")
+    args = parse_arguments(parser)
+
     match args.command:
         case "search":
-            print(f"Searching for: {args.query}")
-
-            keyword_matcher = KeywordMatcher()
-
-            for movie in movies:
-                title = movie["title"]
-
-                if keyword_matcher.match_found(args.query, title):
-                    search_results.append(title)
-
-            for index, title in enumerate(search_results[:5]):
-                print(f"{index + 1}. {title}")
-
+            search_movie_by_query(args.query)
+        case "build":
+            build_inverted_index()
         case _:
             parser.print_help()
 
