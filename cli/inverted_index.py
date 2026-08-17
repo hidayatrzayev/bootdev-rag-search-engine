@@ -6,17 +6,19 @@ from collections import Counter
 
 from text_processor import TextProcessor
 from utils import load_movies
+from movie import Movie
 
 
 LAPLACE_SMOOTHING = 0.5
 BM25_DIMINISHING_RETURN = 1.5
 BM25_DOC_LENGTH_NORMALIZATION_STRENGTH = 0.75
+BM25_DEFAULT_SEARCH_LIMIT = 5
 CACHE_DIR = "cache"
 
 
 class InvertedIndex:
     __index: dict[str, set[int]] = {}
-    __docmap: dict[int, dict] = {}
+    __docmap: dict[int, Movie] = {}
     __term_frequencies: dict[int, Counter] = {}
     __doc_lengths: dict[int, int] = {}
 
@@ -25,7 +27,7 @@ class InvertedIndex:
     def get_documents(self, term) -> list[int]:
         return sorted(self.__index.get(term, []))
 
-    def get_movie_by_doc_id(self, doc_id) -> dict:
+    def get_movie_by_doc_id(self, doc_id) -> Movie:
         return self.__docmap[doc_id]
 
     def get_tf(self, doc_id: int, term: str) -> int:
@@ -52,17 +54,35 @@ class InvertedIndex:
         return math.log((self.__total_document_count() + 1) / (self.__document_frequency(token) + 1))
 
     def get_bm25_idf(self, term: str) -> float:
-        token = self.__ensure_single_token(term)
-        df = self.__document_frequency(token)
+        df = self.__document_frequency(self.__ensure_single_token(term))
         return math.log((self.__total_document_count() - df + LAPLACE_SMOOTHING) / (df + LAPLACE_SMOOTHING) + 1)
 
     def get_tf_idf(self, doc_id: str, term: str) -> float:
         return self.get_tf(doc_id, term) * self.get_idf(term)
 
+    def bm25(self, doc_id: int, term: str) -> float:
+        return self.get_bm25_tf(doc_id, term) * self.get_bm25_idf(term)
+
+    def bm25_search(self, query: str, limit: int = BM25_DEFAULT_SEARCH_LIMIT) -> dict[Movie, float]:
+        scores: dict[int, float] = {}
+        tokens = self.__text_processor.process_text(query)
+
+        for token in tokens:
+            for doc_id in self.__index[token]:
+                if doc_id in scores.keys():
+                    scores[doc_id] += self.bm25(doc_id, token)
+                else:
+                    scores[doc_id] = self.bm25(doc_id, token)
+
+        return {
+            self.get_movie_by_doc_id(doc_id): score 
+            for doc_id, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)[:limit]
+        }
+
     def build(self):
         for movie in load_movies():
-            self.__add_document(movie["id"], f"{movie['title']} {movie['description']}")
-            self.__docmap[movie["id"]] = movie
+            self.__add_document(movie.id, f"{movie.title} {movie.description}")
+            self.__docmap[movie.id] = movie
 
         return self
 

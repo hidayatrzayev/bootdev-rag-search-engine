@@ -1,9 +1,10 @@
 import sys
 
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 
 from text_processor import TextProcessor
-from inverted_index import InvertedIndex, BM25_DIMINISHING_RETURN, BM25_DOC_LENGTH_NORMALIZATION_STRENGTH
+from inverted_index import InvertedIndex, BM25_DIMINISHING_RETURN, BM25_DOC_LENGTH_NORMALIZATION_STRENGTH, BM25_DEFAULT_SEARCH_LIMIT
+from movie import Movie
 
 
 def parse_arguments(parser: ArgumentParser):
@@ -46,6 +47,16 @@ def parse_arguments(parser: ArgumentParser):
         help="Tunable BM25 parameter to control document length normalization strength"
     )
 
+    bm25search_parser = subparsers.add_parser("bm25search", help="Search movies using full BM25 scoring")
+    bm25search_parser.add_argument("query", type=str, help="Search query")
+    bm25search_parser.add_argument(
+        "limit", 
+        type=int, 
+        nargs="?", 
+        default=BM25_DEFAULT_SEARCH_LIMIT, 
+        help="Optional limit of how many results to print"
+    )
+
     return parser.parse_args()
 
 
@@ -67,7 +78,7 @@ def search_movie_by_query(query: str):
     text_processor = TextProcessor()
     tokens = text_processor.process_text(query)
 
-    search_results = []
+    search_results: list[Movie] = []
     for token in tokens:
         documents = inverted_index.get_documents(token)
         for doc_id in documents:
@@ -79,7 +90,7 @@ def search_movie_by_query(query: str):
             break  
 
     for matched_movie in search_results:
-        print(f"{matched_movie["id"]}. {matched_movie["title"]}")
+        print(f"{matched_movie.id}. {matched_movie.title}")
 
 
 def build_inverted_index():
@@ -112,6 +123,12 @@ def calculate_and_print_bm25_tf(doc_id: int, term: str, diminishing_return: floa
     print(f"BM25 TF score of '{term}' in document '{doc_id}': {bm25_tf:.2f}")
 
 
+def perform_bm25_search(query: str, limit: int):
+    top_search_results = load_inverted_index().bm25_search(query, limit)
+    for index, (movie, score) in enumerate(top_search_results.items()):
+        print(f"{index + 1}. ({movie.id}) {movie.title}: {score:.2f}")
+
+
 def main() -> None:
     parser = ArgumentParser(description="Keyword Search CLI")
     args = parse_arguments(parser)
@@ -131,6 +148,8 @@ def main() -> None:
             calculate_and_print_bm25_idf(args.term)
         case "bm25tf":
             calculate_and_print_bm25_tf(args.doc_id, args.term, args.dr, args.dlns)
+        case "bm25search":
+            perform_bm25_search(args.query, args.limit)
         case _:
             parser.print_help()
 
