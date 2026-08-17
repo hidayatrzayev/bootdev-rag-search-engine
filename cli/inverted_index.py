@@ -68,7 +68,7 @@ class InvertedIndex:
         tokens = self.__text_processor.process_text(query)
 
         for token in tokens:
-            for doc_id in self.__index[token]:
+            for doc_id in self.__index.get(token, {}):
                 if doc_id in scores.keys():
                     scores[doc_id] += self.bm25(doc_id, token)
                 else:
