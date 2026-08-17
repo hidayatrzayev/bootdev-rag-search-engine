@@ -1,5 +1,6 @@
 import pickle
 import math
+import os
 
 from collections import Counter
 
@@ -9,12 +10,15 @@ from utils import load_movies
 
 LAPLACE_SMOOTHING = 0.5
 BM25_DIMINISHING_RETURN = 1.5
+BM25_DOC_LENGTH_NORMALIZATION_STRENGTH = 0.75
+CACHE_DIR = "cache"
 
 
 class InvertedIndex:
     __index: dict[str, set[int]] = {}
     __docmap: dict[int, dict] = {}
     __term_frequencies: dict[int, Counter] = {}
+    __doc_lengths: dict[int, int] = {}
 
     __text_processor: TextProcessor = TextProcessor()
 
@@ -31,9 +35,17 @@ class InvertedIndex:
 
         return doc_counter[self.__ensure_single_token(term)]
 
-    def get_bm25_tf(self, doc_id: int, term: str, diminishing_return: float = BM25_DIMINISHING_RETURN) -> float:
+    def get_bm25_tf(
+            self, 
+            doc_id: int, 
+            term: str, 
+            diminishing_return: float = BM25_DIMINISHING_RETURN,
+            norm_strength: float = BM25_DOC_LENGTH_NORMALIZATION_STRENGTH,
+        ) -> float:
         tf = self.get_tf(doc_id, term)
-        return (tf * (diminishing_return + 1)) / (tf + diminishing_return)
+        length_norm = 1 - norm_strength + norm_strength * (self.__doc_lengths[doc_id] / self.__average_doc_length())
+
+        return (tf * (diminishing_return + 1)) / (tf + diminishing_return * length_norm)
 
     def get_idf(self, term: str) -> float:
         token = self.__ensure_single_token(term)
@@ -55,26 +67,32 @@ class InvertedIndex:
         return self
 
     def save(self):
-        with open("cache/index.pkl", "wb") as index_file:
+        with open(os.path.join(CACHE_DIR, "index.pkl"), "wb") as index_file:
             pickle.dump(self.__index, index_file)
 
-        with open("cache/docmap.pkl", "wb") as docmap_file:
+        with open(os.path.join(CACHE_DIR, "docmap.pkl"), "wb") as docmap_file:
             pickle.dump(self.__docmap, docmap_file)
 
-        with open("cache/term_frequencies.pkl", "wb") as tf_file:
+        with open(os.path.join(CACHE_DIR, "term_frequencies.pkl"), "wb") as tf_file:
             pickle.dump(self.__term_frequencies, tf_file)
+
+        with open(os.path.join(CACHE_DIR, "doc_lengths.pkl"), "wb") as dl_file:
+            pickle.dump(self.__doc_lengths, dl_file)
 
         return self
 
     def load(self):
-        with open("cache/index.pkl", "rb") as index_file:
+        with open(os.path.join(CACHE_DIR, "index.pkl"), "rb") as index_file:
             self.__index = pickle.load(index_file)
 
-        with open("cache/docmap.pkl", "rb") as docmap_file:
+        with open(os.path.join(CACHE_DIR, "docmap.pkl"), "rb") as docmap_file:
             self.__docmap = pickle.load(docmap_file)
 
-        with open("cache/term_frequencies.pkl", "rb") as tf_file:
+        with open(os.path.join(CACHE_DIR, "term_frequencies.pkl"), "rb") as tf_file:
             self.__term_frequencies = pickle.load(tf_file)
+
+        with open(os.path.join(CACHE_DIR, "doc_lengths.pkl"), "rb") as dl_file:
+            self.__doc_lengths = pickle.load(dl_file)
 
     def __add_document(self, doc_id: int, text: str):
         stemmed_tokens = self.__text_processor.process_text(text)
@@ -89,11 +107,23 @@ class InvertedIndex:
             else:
                 self.__term_frequencies[doc_id] = Counter({token})
 
+        if doc_id in self.__doc_lengths.keys():
+            self.__doc_lengths[doc_id] += len(stemmed_tokens)
+        else:
+            self.__doc_lengths[doc_id] = len(stemmed_tokens)
+
     def __total_document_count(self):
         return len(self.__docmap)
 
     def __document_frequency(self, term: str) -> int:
         return len(self.get_documents(term))
+
+    def __average_doc_length(self) -> float:
+        total_doc_count = len(self.__doc_lengths)
+        if total_doc_count == 0:
+            return 0.0
+        
+        return sum(self.__doc_lengths.values()) / total_doc_count
 
     def __ensure_single_token(self, term: str) -> str:
         tokenized = self.__text_processor.process_text(term)

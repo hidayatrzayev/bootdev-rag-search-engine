@@ -3,7 +3,7 @@ import sys
 from argparse import ArgumentParser, Namespace
 
 from text_processor import TextProcessor
-from inverted_index import InvertedIndex, BM25_DIMINISHING_RETURN
+from inverted_index import InvertedIndex, BM25_DIMINISHING_RETURN, BM25_DOC_LENGTH_NORMALIZATION_STRENGTH
 
 
 def parse_arguments(parser: ArgumentParser):
@@ -37,6 +37,13 @@ def parse_arguments(parser: ArgumentParser):
         nargs="?", 
         default=BM25_DIMINISHING_RETURN, 
         help="Tunable BM25 parameter to control diminishing return"
+    )
+    bm25tf_parser.add_argument(
+        "dlns", 
+        type=float, 
+        nargs="?", 
+        default=BM25_DOC_LENGTH_NORMALIZATION_STRENGTH, 
+        help="Tunable BM25 parameter to control document length normalization strength"
     )
 
     return parser.parse_args()
@@ -100,8 +107,8 @@ def calculate_and_print_bm25_idf(term: str):
     print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
 
 
-def calculate_and_print_bm25_tf(doc_id: int, term: str, diminishing_return: float):
-    bm25_tf = load_inverted_index().get_bm25_tf(doc_id, term, diminishing_return)
+def calculate_and_print_bm25_tf(doc_id: int, term: str, diminishing_return: float, doc_length_norm_strength: float):
+    bm25_tf = load_inverted_index().get_bm25_tf(doc_id, term, diminishing_return, doc_length_norm_strength)
     print(f"BM25 TF score of '{term}' in document '{doc_id}': {bm25_tf:.2f}")
 
 
@@ -123,7 +130,7 @@ def main() -> None:
         case "bm25idf":
             calculate_and_print_bm25_idf(args.term)
         case "bm25tf":
-            calculate_and_print_bm25_tf(args.doc_id, args.term, args.dr)
+            calculate_and_print_bm25_tf(args.doc_id, args.term, args.dr, args.dlns)
         case _:
             parser.print_help()
 
