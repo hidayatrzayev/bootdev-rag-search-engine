@@ -16,6 +16,12 @@ class InvertedIndex:
     def get_documents(self, term) -> list[int]:
         return sorted(self.__index.get(term, []))
 
+    def get_total_document_count(self):
+        return len(self.__docmap)
+
+    def get_matching_document_count(self, term: str) -> int:
+        return len(self.get_documents(term))
+
     def get_movie_by_doc_id(self, doc_id) -> dict:
         return self.__docmap[doc_id]
 

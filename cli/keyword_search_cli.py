@@ -1,4 +1,5 @@
 import sys
+import math
 
 from argparse import ArgumentParser
 
@@ -18,6 +19,9 @@ def parse_arguments(parser: ArgumentParser):
     tf_parser = subparsers.add_parser("tf", help="Get the term frequency for the given term in the document with the given ID")
     tf_parser.add_argument("doc_id", type=int, help="ID of the document in which to look for the term frequency")
     tf_parser.add_argument("term", type=str, help="Term whose frequency to get from the document")
+
+    idf_parser = subparsers.add_parser("idf", help="Get the Inverse Document Frequency (IDF) for the given term")
+    idf_parser.add_argument("term", type=str, help="Term whose IDF to get")
 
     return parser.parse_args()
 
@@ -75,6 +79,13 @@ def get_tf_in_document(doc_id: int, term: str) -> int:
     return inverted_index.get_tf(doc_id, token)
 
 
+def get_idf_frequency(term: str) -> float:
+    token = tokenize_single_term(term)
+    index = load_inverted_index()
+
+    return math.log((index.get_total_document_count() + 1) / (index.get_matching_document_count(token) + 1))
+
+
 def main() -> None:
     parser = ArgumentParser(description="Keyword Search CLI")
     args = parse_arguments(parser)
@@ -87,6 +98,9 @@ def main() -> None:
         case "tf":
             term_frequency = get_tf_in_document(args.doc_id, args.term)
             print(f"Term frequency (TF) for term '{args.term}' in document with ID {args.doc_id} = {term_frequency}")
+        case "idf":
+            inverse_document_frequency = get_idf_frequency(args.term)
+            print(f"Inverse document frequency of '{args.term}': {inverse_document_frequency:.2f}")
         case _:
             parser.print_help()
 
