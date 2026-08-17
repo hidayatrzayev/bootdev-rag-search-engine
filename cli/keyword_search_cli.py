@@ -21,9 +21,12 @@ def parse_arguments(parser: ArgumentParser):
     idf_parser = subparsers.add_parser("idf", help="Calculate the Inverse Document Frequency (IDF) for the given term")
     idf_parser.add_argument("term", type=str, help="Term whose IDF to calculate")
 
-    tf_idf_parser = subparsers.add_parser("tfidf", help="Calculate TF-IDF (Term Frequency - Inverse Document Frequency) for the given term")
-    tf_idf_parser.add_argument("doc_id", type=int, help="ID of the document in which to look for the term frequency")
-    tf_idf_parser.add_argument("term", type=str, help="Term whose TF-IDF to calculate")
+    tfidf_parser = subparsers.add_parser("tfidf", help="Calculate TF-IDF (Term Frequency - Inverse Document Frequency) for the given term")
+    tfidf_parser.add_argument("doc_id", type=int, help="ID of the document in which to look for the term frequency")
+    tfidf_parser.add_argument("term", type=str, help="Term whose TF-IDF to calculate")
+
+    bm25idf_parser = subparsers.add_parser("bm25idf", help="Calculate BM25 IDF score for the given term")
+    bm25idf_parser.add_argument("term", type=str, help="Term whose BM25 IDF score to calculate")
 
     return parser.parse_args()
 
@@ -98,6 +101,11 @@ def calculate_and_print_tf_idf(args: Namespace):
     print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
 
 
+def calculate_and_print_bm25_idf(term: str):
+    bm25_idf = load_inverted_index().get_bm25_idf(term)
+    print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
+
+
 def main() -> None:
     parser = ArgumentParser(description="Keyword Search CLI")
     args = parse_arguments(parser)
@@ -113,6 +121,8 @@ def main() -> None:
             calculate_and_print_idf(args)
         case "tfidf":
             calculate_and_print_tf_idf(args)
+        case "bm25idf":
+            calculate_and_print_bm25_idf(args.term)
         case _:
             parser.print_help()
 

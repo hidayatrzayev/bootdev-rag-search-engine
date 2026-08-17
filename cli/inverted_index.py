@@ -7,6 +7,9 @@ from text_processor import TextProcessor
 from utils import load_movies
 
 
+LAPLACE_SMOOTHING = 0.5
+
+
 class InvertedIndex:
     __index: dict[str, set[int]] = {}
     __docmap: dict[int, dict] = {}
@@ -28,7 +31,12 @@ class InvertedIndex:
         return doc_counter[term]
 
     def get_idf(self, term: str) -> float:
-        return math.log((len(self.__docmap) + 1) / (len(self.get_documents(term)) + 1))
+        return math.log((self.__total_document_count() + 1) / (self.__document_frequency(term) + 1))
+
+    def get_bm25_idf(self, term: str) -> float:
+        token = self.__ensure_single_token(term)
+        df = self.__document_frequency(token)
+        return math.log((self.__total_document_count() - df + LAPLACE_SMOOTHING) / (df + LAPLACE_SMOOTHING) + 1)
 
     def get_tf_idf(self, doc_id: str, term: str) -> float:
         return self.get_tf(doc_id, term) * self.get_idf(term)
@@ -74,3 +82,17 @@ class InvertedIndex:
                 self.__term_frequencies[doc_id].update({token})
             else:
                 self.__term_frequencies[doc_id] = Counter({token})
+
+    def __total_document_count(self):
+        return len(self.__docmap)
+
+    def __document_frequency(self, term: str) -> int:
+        return len(self.get_documents(term))
+
+    def __ensure_single_token(self, term: str) -> str:
+        tokenized = self.__text_processor.process_text(term)
+
+        if len(tokenized) > 1:
+            raise ValueError(f"Expected to tokenize term {term} to exactly 1 token, but was {len(tokenized)}")
+
+        return tokenized[0]
