@@ -1,0 +1,17 @@
+from typing import TypeAlias
+
+Vector: TypeAlias = list[float]
+
+
+def add_vectors(vec1: Vector, vec2: Vector) -> Vector:
+    if len(vec1) != len(vec2):
+        raise ValueError(f"Vectors must have same lengths to be added: {vec1}; {vec2}")
+
+    return [vec1[i] + vec2[i] for i in range(len(vec1))]
+
+
+def subtract_vectors(vec1: Vector, vec2: Vector) -> Vector:
+    if len(vec1) != len(vec2):
+            raise ValueError(f"Vectors must have same lengths to be subtracted: {vec1}; {vec2}")
+
+    return [vec1[i] - vec2[i] for i in range(len(vec1))]
