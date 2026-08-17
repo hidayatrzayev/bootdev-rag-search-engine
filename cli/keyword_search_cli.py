@@ -3,7 +3,7 @@ import sys
 from argparse import ArgumentParser, Namespace
 
 from text_processor import TextProcessor
-from inverted_index import InvertedIndex
+from inverted_index import InvertedIndex, BM25_DIMINISHING_RETURN
 
 
 def parse_arguments(parser: ArgumentParser):
@@ -27,6 +27,17 @@ def parse_arguments(parser: ArgumentParser):
 
     bm25idf_parser = subparsers.add_parser("bm25idf", help="Calculate BM25 IDF score for the given term")
     bm25idf_parser.add_argument("term", type=str, help="Term whose BM25 IDF score to calculate")
+
+    bm25tf_parser = subparsers.add_parser("bm25tf", help="Calculate BM25 TF score for the given term")
+    bm25tf_parser.add_argument("doc_id", type=int, help="ID of the document in which to look for the term BM25 TF")
+    bm25tf_parser.add_argument("term", type=str, help="Term whose BM25 TF score to calculate")
+    bm25tf_parser.add_argument(
+        "dr", 
+        type=float, 
+        nargs="?", 
+        default=BM25_DIMINISHING_RETURN, 
+        help="Tunable BM25 parameter to control diminishing return"
+    )
 
     return parser.parse_args()
 
@@ -89,6 +100,11 @@ def calculate_and_print_bm25_idf(term: str):
     print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
 
 
+def calculate_and_print_bm25_tf(doc_id: int, term: str, diminishing_return: float):
+    bm25_tf = load_inverted_index().get_bm25_tf(doc_id, term, diminishing_return)
+    print(f"BM25 TF score of '{term}' in document '{doc_id}': {bm25_tf:.2f}")
+
+
 def main() -> None:
     parser = ArgumentParser(description="Keyword Search CLI")
     args = parse_arguments(parser)
@@ -106,6 +122,8 @@ def main() -> None:
             calculate_and_print_tf_idf(args.doc_id, args.term)
         case "bm25idf":
             calculate_and_print_bm25_idf(args.term)
+        case "bm25tf":
+            calculate_and_print_bm25_tf(args.doc_id, args.term, args.dr)
         case _:
             parser.print_help()
 

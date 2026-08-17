@@ -8,6 +8,7 @@ from utils import load_movies
 
 
 LAPLACE_SMOOTHING = 0.5
+BM25_DIMINISHING_RETURN = 1.5
 
 
 class InvertedIndex:
@@ -24,12 +25,15 @@ class InvertedIndex:
         return self.__docmap[doc_id]
 
     def get_tf(self, doc_id: int, term: str) -> int:
-        token = self.__ensure_single_token(term)
         doc_counter = self.__term_frequencies.get(doc_id)
         if doc_counter is None:
             return 0
 
-        return doc_counter[token]
+        return doc_counter[self.__ensure_single_token(term)]
+
+    def get_bm25_tf(self, doc_id: int, term: str, diminishing_return: float = BM25_DIMINISHING_RETURN) -> float:
+        tf = self.get_tf(doc_id, term)
+        return (tf * (diminishing_return + 1)) / (tf + diminishing_return)
 
     def get_idf(self, term: str) -> float:
         token = self.__ensure_single_token(term)
