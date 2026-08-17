@@ -82,7 +82,7 @@ def calculate_tf_in_document(doc_id: int, term: str, index: InvertedIndex) -> in
 
 
 def calculate_idf_score(term: str, index: InvertedIndex) -> float:
-    return math.log((index.get_total_document_count() + 1) / (index.get_matching_document_count(term) + 1))
+    return math.log((index.get_total_document_count() + 1) / (index.get_document_frequency(term) + 1))
 
 
 def calculate_tf_idf_score(doc_id: int, term: str, index: InvertedIndex) -> float:
