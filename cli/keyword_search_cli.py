@@ -1,11 +1,9 @@
 import sys
-import math
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 
 from text_processor import TextProcessor
 from inverted_index import InvertedIndex
-from utils import load_movies
 
 
 def parse_arguments(parser: ArgumentParser):
@@ -77,16 +75,27 @@ def build_inverted_index():
     inverted_index.build().save()
 
 
-def calculate_tf_in_document(doc_id: int, term: str, index: InvertedIndex) -> int:
-    return index.get_tf(doc_id, term)
+def calculate_and_print_tf(args: Namespace):
+    term_frequency = load_inverted_index().get_tf(
+        doc_id=args.doc_id,
+        term=tokenize_single_term(args.term),
+    )
+    print(f"Term frequency (TF) for term '{args.term}' in document with ID {args.doc_id} = {term_frequency}")
 
 
-def calculate_idf_score(term: str, index: InvertedIndex) -> float:
-    return math.log((index.get_total_document_count() + 1) / (index.get_document_frequency(term) + 1))
+def calculate_and_print_idf(args: Namespace):
+    inverse_document_frequency = load_inverted_index().get_idf(
+        term=tokenize_single_term(args.term),
+    )
+    print(f"Inverse document frequency of '{args.term}': {inverse_document_frequency:.2f}")
 
 
-def calculate_tf_idf_score(doc_id: int, term: str, index: InvertedIndex) -> float:
-    return calculate_tf_in_document(doc_id, term, index) * calculate_idf_score(term, index)
+def calculate_and_print_tf_idf(args: Namespace):
+    tf_idf = load_inverted_index().get_tf_idf(
+        doc_id=args.doc_id,
+        term=tokenize_single_term(args.term),
+    )
+    print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
 
 
 def main() -> None:
@@ -99,25 +108,11 @@ def main() -> None:
         case "build":
             build_inverted_index()
         case "tf":
-            term_frequency = calculate_tf_in_document(
-                args.doc_id, 
-                term=tokenize_single_term(args.term), 
-                index=load_inverted_index()
-            )
-            print(f"Term frequency (TF) for term '{args.term}' in document with ID {args.doc_id} = {term_frequency}")
+            calculate_and_print_tf(args)
         case "idf":
-            inverse_document_frequency = calculate_idf_score(
-                term=tokenize_single_term(args.term), 
-                index=load_inverted_index()
-            )
-            print(f"Inverse document frequency of '{args.term}': {inverse_document_frequency:.2f}")
+            calculate_and_print_idf(args)
         case "tfidf":
-            tf_idf = calculate_tf_idf_score(
-                args.doc_id, 
-                term=tokenize_single_term(args.term),
-                index=load_inverted_index()
-            )
-            print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
+            calculate_and_print_tf_idf(args)
         case _:
             parser.print_help()
 

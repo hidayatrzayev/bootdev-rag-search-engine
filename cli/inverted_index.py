@@ -1,4 +1,5 @@
 import pickle
+import math
 
 from collections import Counter
 
@@ -16,12 +17,6 @@ class InvertedIndex:
     def get_documents(self, term) -> list[int]:
         return sorted(self.__index.get(term, []))
 
-    def get_total_document_count(self):
-        return len(self.__docmap)
-
-    def get_document_frequency(self, term: str) -> int:
-        return len(self.get_documents(term))
-
     def get_movie_by_doc_id(self, doc_id) -> dict:
         return self.__docmap[doc_id]
 
@@ -31,6 +26,12 @@ class InvertedIndex:
             return 0
 
         return doc_counter[term]
+
+    def get_idf(self, term: str) -> float:
+        return math.log((len(self.__docmap) + 1) / (len(self.get_documents(term)) + 1))
+
+    def get_tf_idf(self, doc_id: str, term: str) -> float:
+        return self.get_tf(doc_id, term) * self.get_idf(term)
 
     def build(self):
         for movie in load_movies():
