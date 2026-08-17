@@ -42,15 +42,6 @@ def load_inverted_index() -> InvertedIndex:
     return inverted_index
 
 
-def tokenize_single_term(term: str) -> str:
-    text_processor = TextProcessor()
-    token = text_processor.process_text(term)
-    if len(token) > 1:
-        raise ValueError(f"Expected to tokenize term {term} to exactly 1 token, but was {len(token)}")
-
-    return token[0]
-
-
 def search_movie_by_query(query: str):
     print(f"Searching for: {query}")
 
@@ -78,27 +69,19 @@ def build_inverted_index():
     inverted_index.build().save()
 
 
-def calculate_and_print_tf(args: Namespace):
-    term_frequency = load_inverted_index().get_tf(
-        doc_id=args.doc_id,
-        term=tokenize_single_term(args.term),
-    )
-    print(f"Term frequency (TF) for term '{args.term}' in document with ID {args.doc_id} = {term_frequency}")
+def calculate_and_print_tf(doc_id: int, term: str):
+    term_frequency = load_inverted_index().get_tf(doc_id, term)
+    print(f"Term frequency (TF) for term '{term}' in document with ID {doc_id} = {term_frequency}")
 
 
-def calculate_and_print_idf(args: Namespace):
-    inverse_document_frequency = load_inverted_index().get_idf(
-        term=tokenize_single_term(args.term),
-    )
-    print(f"Inverse document frequency of '{args.term}': {inverse_document_frequency:.2f}")
+def calculate_and_print_idf(term: str):
+    inverse_document_frequency = load_inverted_index().get_idf(term)
+    print(f"Inverse document frequency of '{term}': {inverse_document_frequency:.2f}")
 
 
-def calculate_and_print_tf_idf(args: Namespace):
-    tf_idf = load_inverted_index().get_tf_idf(
-        doc_id=args.doc_id,
-        term=tokenize_single_term(args.term),
-    )
-    print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
+def calculate_and_print_tf_idf(doc_id: int, term: str):
+    tf_idf = load_inverted_index().get_tf_idf(doc_id, term)
+    print(f"TF-IDF score of '{term}' in document '{doc_id}': {tf_idf:.2f}")
 
 
 def calculate_and_print_bm25_idf(term: str):
@@ -116,11 +99,11 @@ def main() -> None:
         case "build":
             build_inverted_index()
         case "tf":
-            calculate_and_print_tf(args)
+            calculate_and_print_tf(args.doc_id, args.term)
         case "idf":
-            calculate_and_print_idf(args)
+            calculate_and_print_idf(args.term)
         case "tfidf":
-            calculate_and_print_tf_idf(args)
+            calculate_and_print_tf_idf(args.doc_id, args.term)
         case "bm25idf":
             calculate_and_print_bm25_idf(args.term)
         case _:

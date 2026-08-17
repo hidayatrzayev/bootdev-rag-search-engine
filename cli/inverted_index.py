@@ -24,14 +24,16 @@ class InvertedIndex:
         return self.__docmap[doc_id]
 
     def get_tf(self, doc_id: int, term: str) -> int:
+        token = self.__ensure_single_token(term)
         doc_counter = self.__term_frequencies.get(doc_id)
         if doc_counter is None:
             return 0
 
-        return doc_counter[term]
+        return doc_counter[token]
 
     def get_idf(self, term: str) -> float:
-        return math.log((self.__total_document_count() + 1) / (self.__document_frequency(term) + 1))
+        token = self.__ensure_single_token(term)
+        return math.log((self.__total_document_count() + 1) / (self.__document_frequency(token) + 1))
 
     def get_bm25_idf(self, term: str) -> float:
         token = self.__ensure_single_token(term)
