@@ -23,6 +23,10 @@ def parse_arguments(parser: ArgumentParser):
     idf_parser = subparsers.add_parser("idf", help="Get the Inverse Document Frequency (IDF) for the given term")
     idf_parser.add_argument("term", type=str, help="Term whose IDF to get")
 
+    tf_idf_parser = subparsers.add_parser("tfidf", help="Calculate TF-IDF (Term Frequency - Inverse Document Frequency) for the given term")
+    tf_idf_parser.add_argument("doc_id", type=int, help="ID of the document in which to look for the term frequency")
+    tf_idf_parser.add_argument("term", type=str, help="Term whose TF-IDF to calculate")
+
     return parser.parse_args()
 
 
@@ -73,17 +77,16 @@ def build_inverted_index():
     inverted_index.build().save()
 
 
-def get_tf_in_document(doc_id: int, term: str) -> int:
-    token = tokenize_single_term(term)
-    inverted_index = load_inverted_index()
-    return inverted_index.get_tf(doc_id, token)
+def get_tf_in_document(doc_id: int, term: str, index: InvertedIndex) -> int:
+    return index.get_tf(doc_id, term)
 
 
-def get_idf_frequency(term: str) -> float:
-    token = tokenize_single_term(term)
-    index = load_inverted_index()
+def get_idf_frequency(term: str, index: InvertedIndex) -> float:
+    return math.log((index.get_total_document_count() + 1) / (index.get_matching_document_count(term) + 1))
 
-    return math.log((index.get_total_document_count() + 1) / (index.get_matching_document_count(token) + 1))
+
+def calculate_tf_idf_score(doc_id: int, term: str, index: InvertedIndex) -> float:
+    return get_tf_in_document(doc_id, term, index) * get_idf_frequency(term, index)
 
 
 def main() -> None:
@@ -96,11 +99,25 @@ def main() -> None:
         case "build":
             build_inverted_index()
         case "tf":
-            term_frequency = get_tf_in_document(args.doc_id, args.term)
+            term_frequency = get_tf_in_document(
+                args.doc_id, 
+                term=tokenize_single_term(args.term), 
+                index=load_inverted_index()
+            )
             print(f"Term frequency (TF) for term '{args.term}' in document with ID {args.doc_id} = {term_frequency}")
         case "idf":
-            inverse_document_frequency = get_idf_frequency(args.term)
+            inverse_document_frequency = get_idf_frequency(
+                term=tokenize_single_term(args.term), 
+                index=load_inverted_index()
+            )
             print(f"Inverse document frequency of '{args.term}': {inverse_document_frequency:.2f}")
+        case "tfidf":
+            tf_idf = calculate_tf_idf_score(
+                args.doc_id, 
+                term=tokenize_single_term(args.term),
+                index=load_inverted_index()
+            )
+            print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
         case _:
             parser.print_help()
 
