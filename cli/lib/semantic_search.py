@@ -5,7 +5,9 @@ from sentence_transformers import SentenceTransformer
 from torch import Tensor
 
 from movie import Movie
+from lib.movie_search_result import MovieSearchResult
 from utils import load_movies
+from lib.vector import cosine_similarity
 
 EMBEDDINGS_FILE_PATH = "cache/movie_embeddings.npy"
 
@@ -45,6 +47,21 @@ class SemanticSearch:
             print(f"Embeddings do not yet exist - building from scratch")
             return self.build_embeddings(documents)
 
+    def search(self, query: str, limit: int) -> list[MovieSearchResult]:
+        if self.embeddings is None:
+            raise ValueError("No embeddings loaded. Call `load_or_create_embeddings` first.")
+
+        query_embedding = self.generate_embedding(query)
+        cosine_similarities = [(
+            cosine_similarity(query_embedding, self.embeddings[i]), 
+            self.documents[i]
+        ) for i in range(len(self.embeddings))]
+
+        return [
+            MovieSearchResult(score, movie.title, movie.description)
+            for score, movie in sorted(cosine_similarities, key=lambda x: x[0], reverse=True)[:limit]
+        ]
+
     def __populate_document_data(self, documents: list[Movie]):
         self.documents = documents
         self.document_map = {movie.id: movie for movie in documents}
@@ -66,7 +83,7 @@ def embed_text(text: str) -> None:
 
     print(f"Text: {text}")
     print(f"First 3 dimensions: {embedding[:3]}")
-    print(f"Dimensions: {embedding.shape[0]}")
+    print(f"Shape: {embedding.shape}")
 
 
 def verify_embeddings():

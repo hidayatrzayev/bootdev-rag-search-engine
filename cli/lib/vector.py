@@ -1,3 +1,5 @@
+import numpy as np
+
 from typing import TypeAlias
 
 Vector: TypeAlias = list[float]
@@ -29,6 +31,7 @@ def magnitude(vec: Vector) -> float:
 
 
 def cosine_similarity(vec1: Vector, vec2: Vector) -> float:
+   """Custom implementation of cosine similarity function"""
    mag1 = magnitude(vec1)
    if mag1 == 0:
        return 0.0
@@ -38,4 +41,16 @@ def cosine_similarity(vec1: Vector, vec2: Vector) -> float:
        return 0.0
    
    return dot_product(vec1, vec2) / (mag1 * mag2)
+
+
+def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
+    """Implementation of cosine similarity using NumPy library"""
+    dot_product = np.dot(vec1, vec2)
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+
+    return dot_product / (norm1 * norm2)
    
