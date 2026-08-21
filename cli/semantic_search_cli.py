@@ -37,6 +37,13 @@ def parse_arguments(parser: ArgumentParser):
         default=200,
         help="Optional parameter to specify a chunk size"
     )
+    chunk_parser.add_argument(
+        "--overlap",
+        type=int,
+        nargs="?",
+        default=0,
+        help="Optional parameter to specify the amount of overlapping words in chunks"
+    )
 
     return parser.parse_args()
 
@@ -53,17 +60,19 @@ def print_results(results: list[MovieSearchResult]) -> None:
         print(f"  {result.movie_description[:MAX_PRINTED_CHARS]}{" ..." if len(result.movie_description) > MAX_PRINTED_CHARS else "."}\n")
 
 
-def chunk_text(text: str, chunk_size: int) -> list[str]:
+def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     print(f"Chunking {len(text)} characters")
     words = text.split()
 
     chunks: list[str] = []
 
-    first_word_pos = 0
-    while first_word_pos < len(words):
-        last_word_pos = min(first_word_pos + chunk_size, len(words))
+    chunk_start_pos = 0
+    while chunk_start_pos < len(words):
+        first_word_pos = max(chunk_start_pos - overlap, 0)
+        last_word_pos = min(chunk_start_pos + chunk_size, len(words))
+            
         chunks.append(" ".join(words[first_word_pos:last_word_pos]))
-        first_word_pos += chunk_size
+        chunk_start_pos += chunk_size
 
     return chunks
 
@@ -87,7 +96,7 @@ def main() -> None:
         case "search":
             print_results(search_movies(args.query, args.limit))
         case "chunk":
-            print_chunks(chunk_text(args.text, chunk_size=args.chunk_size))
+            print_chunks(chunk_text(args.text, args.chunk_size, args.overlap))
         case _:
             parser.print_help()
 
