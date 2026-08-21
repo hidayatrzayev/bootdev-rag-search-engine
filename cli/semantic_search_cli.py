@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from lib.semantic_search import verify_model, embed_text, verify_embeddings, SemanticSearch
 from lib.movie_search_result import MovieSearchResult
 from utils import load_movies
+from chunking_strategy import ChunkingStrategy, ChunkByWordStrategy, ChunkBySentenceStrategy
 
 
 MAX_PRINTED_CHARS = 50
@@ -45,6 +46,23 @@ def parse_arguments(parser: ArgumentParser):
         help="Optional parameter to specify the amount of overlapping words in chunks"
     )
 
+    semantic_chunk_parser = subparsers.add_parser("semantic_chunk", help="Chunk a given text into semantically integral parts (e.g. sentences) for embedding")
+    semantic_chunk_parser.add_argument("text", type=str, help="Text to chunk")
+    semantic_chunk_parser.add_argument(
+        "--max-chunk-size",
+        type=int,
+        nargs="?",
+        default=4,
+        help="Optional parameter to specify a maximum chunk size"
+    )
+    semantic_chunk_parser.add_argument(
+        "--overlap",
+        type=int,
+        nargs="?",
+        default=0,
+        help="Optional parameter to specify the amount of overlapping parts in chunks"
+    )
+
     return parser.parse_args()
 
 
@@ -60,21 +78,27 @@ def print_results(results: list[MovieSearchResult]) -> None:
         print(f"  {result.movie_description[:MAX_PRINTED_CHARS]}{" ..." if len(result.movie_description) > MAX_PRINTED_CHARS else "."}\n")
 
 
-def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
+def chunk_text(
+    text: str, 
+    chunk_size: int, 
+    overlap: int, 
+    chunking_strategy: ChunkingStrategy,
+    chunk_size_overflow_allowed: bool = True    
+) -> list[str]:
     print(f"Chunking {len(text)} characters")
-    words = text.split()
+    chunks = chunking_strategy.chunk(text)
 
-    chunks: list[str] = []
+    result: list[str] = []
 
     chunk_start_pos = 0
-    while chunk_start_pos < len(words):
-        first_word_pos = max(chunk_start_pos - overlap, 0)
-        last_word_pos = min(chunk_start_pos + chunk_size, len(words))
-            
-        chunks.append(" ".join(words[first_word_pos:last_word_pos]))
-        chunk_start_pos += chunk_size
+    while chunk_start_pos < len(chunks):
+        first_chunk_pos = max(chunk_start_pos - overlap, 0)
+        last_chunk_pos = min(first_chunk_pos + chunk_size, len(chunks))
+        
+        result.append(" ".join(chunks[first_chunk_pos:last_chunk_pos]))
+        chunk_start_pos = first_chunk_pos + chunk_size
 
-    return chunks
+    return result
 
 
 def print_chunks(chunks: list[str]) -> None:
@@ -96,7 +120,17 @@ def main() -> None:
         case "search":
             print_results(search_movies(args.query, args.limit))
         case "chunk":
-            print_chunks(chunk_text(args.text, args.chunk_size, args.overlap))
+            print_chunks(chunk_text(args.text, args.chunk_size, args.overlap, ChunkByWordStrategy()))
+        case "semantic_chunk":
+            print_chunks(
+                chunk_text(
+                    text=args.text, 
+                    chunk_size=args.max_chunk_size, 
+                    overlap=args.overlap, 
+                    chunking_strategy=ChunkBySentenceStrategy(),
+                    chunk_size_overflow_allowed=False
+                )
+            )
         case _:
             parser.print_help()
 
