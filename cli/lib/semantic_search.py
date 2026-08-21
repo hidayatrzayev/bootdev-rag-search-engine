@@ -1,7 +1,6 @@
 import numpy as np
 import os
 
-from abc import ABC, abstractmethod
 from sentence_transformers import SentenceTransformer
 
 from movie import Movie
@@ -10,7 +9,7 @@ from utils import load_movies
 from lib.vector import cosine_similarity
 
 
-class SemanticSearch(ABC):
+class SemanticSearch:
     def __init__(self, embeddings_file_path: str = "cache/movie_embeddings.npy"):
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
         self.embeddings: np.ndarray = None
@@ -18,7 +17,7 @@ class SemanticSearch(ABC):
         self.document_map: dict[int, Movie] = None
         self.embeddings_file_path = embeddings_file_path
 
-    def generate_embedding(self, text: str):
+    def generate_embedding(self, text: str) -> np.ndarray:
         if not text or text.isspace():
             raise ValueError(f"Cannot generate an embedding for an empty text: {text}")
 
@@ -46,33 +45,32 @@ class SemanticSearch(ABC):
         if self.embeddings is None:
             raise ValueError("No embeddings loaded. Call `load_or_create_embeddings` first.")
 
-        query_embedding = self.generate_embedding(query)
-        cosine_similarities = [(
-            cosine_similarity(query_embedding, self.embeddings[i]), 
-            self.documents[i]
-        ) for i in range(len(self.embeddings))]
+        return self._do_search(self.generate_embedding(query), limit)
 
-        return [
-            MovieSearchResult(score, movie.title, movie.description)
-            for score, movie in sorted(cosine_similarities, key=lambda x: x[0], reverse=True)[:limit]
-        ]
-
-    @abstractmethod
     def _do_build(self, movies: list[Movie]) -> np.ndarray:
         movies_info = [f"{movie.title}: {movie.description}" for movie in movies]
         return self.model.encode(movies_info, show_progress_bar=True)
 
-    @abstractmethod
     def _embeddings_file_exists(self) -> bool:
         return os.path.exists(self.embeddings_file_path)
 
-    @abstractmethod
     def _do_load_embeddings(self) -> np.ndarray:
         with open(self.embeddings_file_path, "rb") as f:
             self.embeddings = np.load(f)
         
             if len(self.embeddings) == len(self.documents):
                 return self.embeddings
+
+    def _do_search(self, query_embedding: np.ndarray, limit: int) -> list[MovieSearchResult]:
+        similarity_scores = [(
+            cosine_similarity(query_embedding, self.embeddings[i]), 
+            self.documents[i]
+        ) for i in range(len(self.embeddings))]
+
+        return [
+            MovieSearchResult(score, movie.title, movie.description[:100])
+            for score, movie in sorted(similarity_scores, key=lambda x: x[0], reverse=True)[:limit]
+        ]
 
     def __populate_document_data(self, documents: list[Movie]):
         self.documents = documents

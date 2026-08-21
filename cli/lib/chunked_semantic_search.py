@@ -3,6 +3,8 @@ import os
 import numpy as np
 
 from lib.semantic_search import SemanticSearch
+from lib.vector import cosine_similarity
+from lib.movie_search_result import MovieSearchResult
 
 from utils import chunk_text
 from chunking_strategy import ChunkBySentenceStrategy
@@ -14,6 +16,31 @@ class ChunkedSemanticSearch(SemanticSearch):
         super().__init__(embeddings_file_path="cache/chunk_embeddings.npy")
         self.chunk_metadata = None
         self.chunk_metadata_file_path = "cache/chunk_metadata.json"
+
+
+    def _do_search(self, query_embedding, limit):
+        chunk_scores: list[dict] = []
+
+        for chunk_index, embedding in enumerate(self.embeddings):
+            score = cosine_similarity(query_embedding, embedding)
+            chunk_scores.append({
+                "chunk_idx": chunk_index,
+                "movie_idx": self.chunk_metadata[chunk_index]["movie_idx"],
+                "score": score
+            })
+
+        best_movie_scores: dict[int, float] = {}
+        for chunk_score in chunk_scores:
+            movie_idx = chunk_score["movie_idx"]
+            score = chunk_score["score"]
+
+            if movie_idx not in best_movie_scores.keys() or score > best_movie_scores[movie_idx]:
+                best_movie_scores[movie_idx] = score
+
+        return [
+            MovieSearchResult(score, self.documents[idx].title, self.documents[idx].description[:100])
+            for idx, score in sorted(best_movie_scores.items(), key=lambda item: item[1], reverse=True)[:limit]
+        ]
 
     def _do_build(self, movies) -> np.ndarray:
         all_chunks: list[str] = []
@@ -44,7 +71,7 @@ class ChunkedSemanticSearch(SemanticSearch):
 
     def _do_load_embeddings(self) -> np.ndarray:
         with open(self.chunk_metadata_file_path, "r") as f:
-            self.chunk_metadata = json.load(f)
+            self.chunk_metadata = json.load(f)["chunks"]
 
         with open(self.embeddings_file_path, "rb") as f:
             self.embeddings = np.load(f)

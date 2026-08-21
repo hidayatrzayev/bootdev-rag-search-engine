@@ -7,9 +7,6 @@ from utils import load_movies, chunk_text
 from chunking_strategy import ChunkByWordStrategy, ChunkBySentenceStrategy
 
 
-MAX_PRINTED_CHARS = 50
-
-
 def parse_arguments(parser: ArgumentParser):
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -66,6 +63,10 @@ def parse_arguments(parser: ArgumentParser):
 
     subparsers.add_parser("embed_chunks", help="Generate chunked embeddings for the movie dataset")
 
+    chunked_search_parser = subparsers.add_parser("chunked_search", help="Perform semantic search on chunked movie embeddings")
+    chunked_search_parser.add_argument("query", type=str, help="Query to perform semantic search on")
+    chunked_search_parser.add_argument("--limit", type=int, default=5, help="Optional parameter of how many results to return")
+
     return parser.parse_args()
 
 
@@ -77,8 +78,8 @@ def search_movies(query: str, limit: int) -> list[MovieSearchResult]:
 
 def print_results(results: list[MovieSearchResult]) -> None:
     for index, result in enumerate(results):
-        print(f"{index + 1}. {result.movie_title} (score: {result.score})")
-        print(f"  {result.movie_description[:MAX_PRINTED_CHARS]}{" ..." if len(result.movie_description) > MAX_PRINTED_CHARS else "."}\n")
+        print(f"{index + 1}. {result.movie_title} (score: {result.score:.4f})")
+        print(f"  {result.movie_description}...")
 
 
 def print_chunks(chunks: list[str]) -> None:
@@ -90,6 +91,12 @@ def embed_movie_chunks():
     movies = load_movies()
     semantic_search = ChunkedSemanticSearch()
     return semantic_search.load_or_create_embeddings(movies)
+
+
+def search_chunked_movies(query: str, limit: int) -> list[MovieSearchResult]:
+    semantic_search = ChunkedSemanticSearch()
+    semantic_search.load_or_create_embeddings(load_movies())
+    return semantic_search.search(query, limit)
 
 
 def main() -> None:
@@ -120,6 +127,8 @@ def main() -> None:
         case "embed_chunks":
             embeddings = embed_movie_chunks()
             print(f"Generated {len(embeddings)} chunked embeddings")
+        case "chunked_search":
+            print_results(search_chunked_movies(args.query, args.limit))
         case _:
             parser.print_help()
 
