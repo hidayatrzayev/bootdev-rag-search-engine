@@ -19,4 +19,8 @@ class ChunkByWordStrategy(ChunkingStrategy):
 class ChunkBySentenceStrategy(ChunkingStrategy):
 
     def chunk(self, text: str) -> list[str]:
-        return re.split(r"(?<=[.!?])\s+", text)
+        stripped = text.strip()
+        if not stripped:
+            return []
+
+        return re.split(r"(?<=[.!?])\s+", stripped)

@@ -116,13 +116,7 @@ def main() -> None:
             print_chunks(chunk_text(args.text, args.chunk_size, args.overlap, ChunkByWordStrategy()))
         case "semantic_chunk":
             print_chunks(
-                chunk_text(
-                    text=args.text, 
-                    chunk_size=args.max_chunk_size, 
-                    overlap=args.overlap, 
-                    chunking_strategy=ChunkBySentenceStrategy(),
-                    chunk_size_overflow_allowed=False
-                )
+                chunk_text(args.text, args.max_chunk_size, args.overlap, ChunkBySentenceStrategy())
             )
         case "embed_chunks":
             embeddings = embed_movie_chunks()
