@@ -28,6 +28,16 @@ def parse_arguments(parser: ArgumentParser):
         help="Optional limit of how many results to print"
     )
 
+    chunk_parser = subparsers.add_parser("chunk", help="Chunk a given text into smaller pieces for embedding")
+    chunk_parser.add_argument("text", type=str, help="Text to chunk")
+    chunk_parser.add_argument(
+        "--chunk-size",
+        type=int,
+        nargs="?",
+        default=200,
+        help="Optional parameter to specify a chunk size"
+    )
+
     return parser.parse_args()
 
 
@@ -43,6 +53,26 @@ def print_results(results: list[MovieSearchResult]) -> None:
         print(f"  {result.movie_description[:MAX_PRINTED_CHARS]}{" ..." if len(result.movie_description) > MAX_PRINTED_CHARS else "."}\n")
 
 
+def chunk_text(text: str, chunk_size: int) -> list[str]:
+    print(f"Chunking {len(text)} characters")
+    words = text.split()
+
+    chunks: list[str] = []
+
+    first_word_pos = 0
+    while first_word_pos < len(words):
+        last_word_pos = min(first_word_pos + chunk_size, len(words))
+        chunks.append(" ".join(words[first_word_pos:last_word_pos]))
+        first_word_pos += chunk_size
+
+    return chunks
+
+
+def print_chunks(chunks: list[str]) -> None:
+    for index, chunk in enumerate(chunks):
+        print(f"{index + 1}. {chunk}")
+
+
 def main() -> None:
     parser = ArgumentParser(description="Semantic Search CLI")
     args = parse_arguments(parser)
@@ -56,6 +86,8 @@ def main() -> None:
             verify_embeddings()
         case "search":
             print_results(search_movies(args.query, args.limit))
+        case "chunk":
+            print_chunks(chunk_text(args.text, chunk_size=args.chunk_size))
         case _:
             parser.print_help()
 
