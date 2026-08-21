@@ -1,22 +1,22 @@
 import numpy as np
 import os
 
+from abc import ABC, abstractmethod
 from sentence_transformers import SentenceTransformer
-from torch import Tensor
 
 from movie import Movie
 from lib.movie_search_result import MovieSearchResult
 from utils import load_movies
 from lib.vector import cosine_similarity
 
-EMBEDDINGS_FILE_PATH = "cache/movie_embeddings.npy"
 
-class SemanticSearch:
-    def __init__(self):
+class SemanticSearch(ABC):
+    def __init__(self, embeddings_file_path: str = "cache/movie_embeddings.npy"):
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.embeddings: Tensor = None
+        self.embeddings: np.ndarray = None
         self.documents: list[Movie] = None
         self.document_map: dict[int, Movie] = None
+        self.embeddings_file_path = embeddings_file_path
 
     def generate_embedding(self, text: str):
         if not text or text.isspace():
@@ -24,28 +24,23 @@ class SemanticSearch:
 
         return self.model.encode([text])[0]
 
-    def build_embeddings(self, documents: list[Movie]) -> Tensor:
-        self.__populate_document_data(documents)
+    def build_embeddings(self, movies: list[Movie]) -> np.ndarray:
+        self.__populate_document_data(movies)
 
-        movies = [f"{movie.title}: {movie.description}" for movie in documents]
-        self.embeddings = self.model.encode(movies, show_progress_bar=True)
+        self.embeddings = self._do_build(movies)
         self.__save_embeddings()
 
         return self.embeddings
 
-    def load_or_create_embeddings(self, documents: list[Movie]):
-        self.__populate_document_data(documents)
+    def load_or_create_embeddings(self, movies: list[Movie]):
+        self.__populate_document_data(movies)
 
-        if os.path.exists(EMBEDDINGS_FILE_PATH):
+        if self._embeddings_file_exists():
             print(f"Embeddings already exist - loading from cache")
-            with open(EMBEDDINGS_FILE_PATH, "rb") as f:
-                self.embeddings = np.load(f)
-
-            if len(self.embeddings) == len(self.documents):
-                return self.embeddings
+            return self._do_load_embeddings()
         else:
             print(f"Embeddings do not yet exist - building from scratch")
-            return self.build_embeddings(documents)
+            return self.build_embeddings(movies)
 
     def search(self, query: str, limit: int) -> list[MovieSearchResult]:
         if self.embeddings is None:
@@ -62,12 +57,29 @@ class SemanticSearch:
             for score, movie in sorted(cosine_similarities, key=lambda x: x[0], reverse=True)[:limit]
         ]
 
+    @abstractmethod
+    def _do_build(self, movies: list[Movie]) -> np.ndarray:
+        movies_info = [f"{movie.title}: {movie.description}" for movie in movies]
+        return self.model.encode(movies_info, show_progress_bar=True)
+
+    @abstractmethod
+    def _embeddings_file_exists(self) -> bool:
+        return os.path.exists(self.embeddings_file_path)
+
+    @abstractmethod
+    def _do_load_embeddings(self) -> np.ndarray:
+        with open(self.embeddings_file_path, "rb") as f:
+            self.embeddings = np.load(f)
+        
+            if len(self.embeddings) == len(self.documents):
+                return self.embeddings
+
     def __populate_document_data(self, documents: list[Movie]):
         self.documents = documents
         self.document_map = {movie.id: movie for movie in documents}
 
     def __save_embeddings(self):
-        with open(EMBEDDINGS_FILE_PATH, "wb") as f:
+        with open(self.embeddings_file_path, "wb") as f:
             np.save(f, self.embeddings)
 
 

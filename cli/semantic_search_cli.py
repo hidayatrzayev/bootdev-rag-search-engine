@@ -1,9 +1,10 @@
 from argparse import ArgumentParser
 
 from lib.semantic_search import verify_model, embed_text, verify_embeddings, SemanticSearch
+from lib.chunked_semantic_search import ChunkedSemanticSearch
 from lib.movie_search_result import MovieSearchResult
-from utils import load_movies
-from chunking_strategy import ChunkingStrategy, ChunkByWordStrategy, ChunkBySentenceStrategy
+from utils import load_movies, chunk_text
+from chunking_strategy import ChunkByWordStrategy, ChunkBySentenceStrategy
 
 
 MAX_PRINTED_CHARS = 50
@@ -63,6 +64,8 @@ def parse_arguments(parser: ArgumentParser):
         help="Optional parameter to specify the amount of overlapping parts in chunks"
     )
 
+    subparsers.add_parser("embed_chunks", help="Generate chunked embeddings for the movie dataset")
+
     return parser.parse_args()
 
 
@@ -78,32 +81,15 @@ def print_results(results: list[MovieSearchResult]) -> None:
         print(f"  {result.movie_description[:MAX_PRINTED_CHARS]}{" ..." if len(result.movie_description) > MAX_PRINTED_CHARS else "."}\n")
 
 
-def chunk_text(
-    text: str, 
-    chunk_size: int, 
-    overlap: int, 
-    chunking_strategy: ChunkingStrategy,
-    chunk_size_overflow_allowed: bool = True    
-) -> list[str]:
-    print(f"Chunking {len(text)} characters")
-    chunks = chunking_strategy.chunk(text)
-
-    result: list[str] = []
-
-    chunk_start_pos = 0
-    while chunk_start_pos < len(chunks):
-        first_chunk_pos = max(chunk_start_pos - overlap, 0)
-        last_chunk_pos = min(first_chunk_pos + chunk_size, len(chunks))
-        
-        result.append(" ".join(chunks[first_chunk_pos:last_chunk_pos]))
-        chunk_start_pos = first_chunk_pos + chunk_size
-
-    return result
-
-
 def print_chunks(chunks: list[str]) -> None:
     for index, chunk in enumerate(chunks):
         print(f"{index + 1}. {chunk}")
+
+
+def embed_movie_chunks():
+    movies = load_movies()
+    semantic_search = ChunkedSemanticSearch()
+    return semantic_search.load_or_create_embeddings(movies)
 
 
 def main() -> None:
@@ -131,6 +117,9 @@ def main() -> None:
                     chunk_size_overflow_allowed=False
                 )
             )
+        case "embed_chunks":
+            embeddings = embed_movie_chunks()
+            print(f"Generated {len(embeddings)} chunked embeddings")
         case _:
             parser.print_help()
 
